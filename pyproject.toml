@@ -1,0 +1,13 @@
+[project]
+name = "water"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.13"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "moderngl>=5.12.0",
+    "moderngl-window>=3.1.1",
+    "numpy>=2.5.3",
+    "usd-core>=26.8",
+    "warp-lang>=1.17.0",
+]

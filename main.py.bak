@@ -1,0 +1,117 @@
+
+
+from pathlib import Path
+
+import moderngl
+import moderngl_window as mglw
+import numpy as np
+import warp as wp
+
+import sph
+
+
+SIM_DT = 1.0 / 60.0
+MAX_FRAME_TIME = 0.25
+
+SPEED_SCALE = 10.0
+
+SHADER_DIR = Path(__file__).parent / "shaders"
+
+def read_shader(name: str) -> str:
+    path = SHADER_DIR / name
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+
+    raise SystemExit("path does not exist")
+
+
+class Viewer(mglw.WindowConfig):
+    gl_version = (3, 3)
+    title = "2D SPH"
+    WIDTH = 2560
+    HEIGHT = 1600
+    WIDTH *= 0.96
+    HEIGHT *= 0.96
+    window_size = (WIDTH, HEIGHT)
+    resizable = True
+    vsync = True
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        wp.init()
+        self.solver = sph.Solver()
+        print(sph.log(self.solver))
+
+        # Hybrid-graphics check. Warp computes on the 4090, so if GL lands on the
+        # Intel iGPU every frame crosses between devices and wp.RegisteredGLBuffer
+        # interop is impossible. Force it via Windows Graphics Settings if needed.
+        print("GL renderer:", self.ctx.info["GL_RENDERER"])
+
+        self.ctx.enable(moderngl.PROGRAM_POINT_SIZE)
+        self.prog = self.ctx.program(
+            vertex_shader=read_shader("points.vert"),
+            fragment_shader=read_shader("points.frag"),
+        )
+
+        n = self.solver.n
+        self.vbo_pos = self.ctx.buffer(reserve=n * 3 * 4, dynamic=True)
+        self.vbo_scalar = self.ctx.buffer(reserve=n * 4, dynamic=True)
+        self.vao = self.ctx.vertex_array(
+            self.prog,
+            [
+                (self.vbo_pos, "3f", "in_pos"),
+                (self.vbo_scalar, "1f", "in_scalar"),
+            ],
+        )
+
+        self.accumulator = 0.0
+
+    def letterbox(self) -> tuple[int, int, int, int]:
+        """Largest domain-aspect rectangle centred in the window, in pixels.
+
+        Keeps point sprites circular regardless of how the window is resized.
+        """
+        width_px, height_px = self.wnd.buffer_size
+        aspect = self.solver.width / self.solver.height
+
+        if width_px / height_px > aspect:
+            visible_height = height_px
+            visible_width = int(round(height_px * aspect))
+        else:
+            visible_width = width_px
+            visible_height = int(round(width_px / aspect))
+
+        return (
+            (width_px - visible_width) // 2,
+            (height_px - visible_height) // 2,
+            visible_width,
+            visible_height,
+        )
+
+    def on_render(self, time: float, frame_time: float):
+        self.accumulator += min(frame_time, MAX_FRAME_TIME)
+        while self.accumulator >= SIM_DT:
+            self.solver.step(SIM_DT)
+            self.accumulator -= SIM_DT
+
+        positions = self.solver.x.numpy()
+        speed = np.linalg.norm(self.solver.v.numpy(), axis=1) / SPEED_SCALE
+
+        self.vbo_pos.write(positions.astype("f4"))
+        self.vbo_scalar.write(speed.astype("f4"))
+
+        self.ctx.clear(0.0, 0.0, 0.0)
+        viewport = self.letterbox()
+        self.ctx.viewport = viewport
+
+        self.prog["u_domain"].value = (self.solver.width, self.solver.height)
+        self.prog["u_diameter_px"].value = (
+            2.0 * sph.PARTICLE_RADIUS * viewport[3] / self.solver.height
+        )
+
+        self.vao.render(moderngl.POINTS)
+
+
+if __name__ == "__main__":
+    mglw.run_window_config(Viewer)
