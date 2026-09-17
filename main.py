@@ -1,11 +1,13 @@
 
 
 from pathlib import Path
+from typing import Any
 
 import moderngl
 import moderngl_window as mglw
 import numpy as np
 import warp as wp
+from moderngl_window.context.base import KeyModifiers
 
 import sph
 
@@ -45,6 +47,7 @@ class Viewer(mglw.WindowConfig):
 
         wp.init()
         self.solver = sph.Solver()
+        self.paused = True
         print(sph.log(self.solver))
 
         # Hybrid-graphics check. Warp computes on the 4090, so if GL lands on the
@@ -93,11 +96,22 @@ class Viewer(mglw.WindowConfig):
             visible_height,
         )
 
-    def on_render(self, time: float, frame_time: float):
-        self.accumulator += min(frame_time, MAX_FRAME_TIME) * TIME_SCALE
-        while self.accumulator >= SIM_DT:
+    def on_key_event(self, key: Any, action: Any, modifiers: KeyModifiers) -> None:
+        keys = self.wnd.keys
+
+        if action != keys.ACTION_PRESS:
+            return
+        if key == keys.SPACE:
+            self.paused = not self.paused
+        if key == keys.RIGHT and self.paused:
             self.solver.step(SIM_DT)
-            self.accumulator -= SIM_DT
+
+    def on_render(self, time: float, frame_time: float):
+        if not self.paused:
+            self.accumulator += min(frame_time, MAX_FRAME_TIME) * TIME_SCALE
+            while self.accumulator >= SIM_DT:
+                self.solver.step(SIM_DT)
+                self.accumulator -= SIM_DT
 
         positions = self.solver.x.numpy()
         speed = np.linalg.norm(self.solver.v.numpy(), axis=1) / SPEED_SCALE

@@ -4,7 +4,7 @@ import math
 HEIGHT = 30.0
 WIDTH = HEIGHT * 1.6
 LENGTH = 40.0
-NUM_PARTICLES = 2000
+NUM_PARTICLES = 1200
 
 FLUID_WIDTH = WIDTH
 FLUID_HEIGHT = HEIGHT
@@ -20,6 +20,11 @@ GRAVITY = 9.81
 MAX_COMPRESSION = 0.03
 PRESSURE_K = GRAVITY * FLUID_HEIGHT / MAX_COMPRESSION * 0.7
 NEAR_PRESSURE_K = 0.03 * PRESSURE_K
+
+# lague spawning
+SPAWN_CENTRE = (WIDTH / 2, HEIGHT / 2)
+SPAWN_SIZE = (16.0, 20.0)
+SPAWN_JITTER = 0.05
 
 
 
@@ -65,15 +70,6 @@ def compute_density(grid: wp.uint64, particle_x: wp.array[wp.vec3], particle_rho
 
     particle_rho[i] = rho
     particle_near_rho[i] = near_rho
-
-
-@wp.kernel
-def spawn_random(x: wp.array[wp.vec3], v: wp.array[wp.vec3], width: float, height: float, seed: wp.int32, radius: float):
-    i = wp.tid()
-    state = wp.rand_init(seed, i)
-    print(i)
-    x[i] = wp.vec3(wp.randf(state) * (width - radius), wp.randf(state) * (height - radius), 0.0)
-    v[i] = wp.vec3(0.0, 0.0, 0.0)
 
 
 @wp.kernel
@@ -169,6 +165,30 @@ def apply_bounds(
     particle_x[tid] = x
     particle_v[tid] = v
 
+@wp.kernel
+def spawn_random(x: wp.array[wp.vec3], v: wp.array[wp.vec3], width: float, height: float, seed: wp.int32, radius: float):
+    i = wp.tid()
+    state = wp.rand_init(seed, i)
+    x[i] = wp.vec3(wp.randf(state) * (width - radius), wp.randf(state) * (height - radius), 0.0)
+    v[i] = wp.vec3(0.0, 0.0, 0.0)
+
+@wp.kernel
+def spawn_grid(x: wp.array[wp.vec3], v: wp.array[wp.vec3], centre: wp.vec2, size: wp.vec2, cols: int, rows: int, jitter: float, seed: int):
+    # lague grid spawning do not ask me to explain this
+
+    i = wp.tid()
+    tx = float(i % cols) / float(wp.max(cols - 1, 1))
+    ty = float(i // cols) / float(wp.max(rows - 1, 1))
+    state = wp.rand_init(seed, i)
+    angle = wp.randf(state) * 2.0 * wp.PI
+    offset = jitter * (wp.randf(state) - 0.5)
+    x[i] = wp.vec3(
+        centre[0] + (tx - 0.5) * size[0] + wp.cos(angle) * offset,
+        centre[1] + (ty - 0.5) * size[1] + wp.sin(angle) * offset,
+        0.0,
+    )
+    v[i] = wp.vec3(0.0, 0.0, 0.0)
+
 class Solver:
     def __init__(self, n=NUM_PARTICLES, width=WIDTH, height=HEIGHT, seed=67, gravity=(0.0, 0.0, 0.0), radius=PARTICLE_RADIUS, support_radius=SUPPORT_RADIUS):
         self.n = n
@@ -194,9 +214,18 @@ class Solver:
         self.rho = wp.zeros(n, dtype=float)
         self.near_rho = wp.zeros(n, dtype=float)
 
+        w, h = SPAWN_SIZE
+        self.cols = math.ceil(math.sqrt(w / h * n + (w - h) ** 2 / (4 * h * h)) - (w - h) / (2 * h))
+        self.rows = math.ceil(n / self.cols)
 
         self.grid = wp.HashGrid(64, 64, 1)
-        wp.launch(spawn_random, dim=n, inputs=[self.x, self.v, self.width, self.height, seed, self.radius])
+
+
+        wp.launch(spawn_grid, dim=n,
+                  inputs=[self.x, self.v, wp.vec2(*SPAWN_CENTRE), wp.vec2(*SPAWN_SIZE), self.cols, self.rows,
+                          SPAWN_JITTER, seed])
+
+        #wp.launch(spawn_random, dim=n, inputs=[self.x, self.v, self.width, self.height, seed, self.radius])
 
     def step(self, dt: float):
         x_star = self.x + self.v * 1.0 / 60.0
