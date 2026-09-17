@@ -4,27 +4,28 @@ import math
 HEIGHT = 30.0
 WIDTH = HEIGHT * 1.6
 LENGTH = 40.0
-NUM_PARTICLES = 1200
+NUM_PARTICLES = 4500
 
 FLUID_WIDTH = WIDTH
 FLUID_HEIGHT = HEIGHT
 
+# lague spawning
+SPAWN_CENTRE = ((WIDTH + 15.0) / 2, HEIGHT / 2)
+SPAWN_SIZE = (20.0, 20.0)
+SPAWN_JITTER = 0.05
+
 NEIGHBOR_RATIO = 2.2
+FLUID_WIDTH, FLUID_HEIGHT = SPAWN_SIZE
 
 PARTICLE_SPACING = math.sqrt(FLUID_WIDTH * FLUID_HEIGHT / NUM_PARTICLES)
 SUPPORT_RADIUS = NEIGHBOR_RATIO * PARTICLE_SPACING
-PARTICLE_RADIUS = 0.15
-REST_DENSITY = 1.0 / PARTICLE_SPACING**2
+PARTICLE_RADIUS = 0.28 * PARTICLE_SPACING
+REST_DENSITY = 0.7 / PARTICLE_SPACING**2
 
 GRAVITY = 9.81
 MAX_COMPRESSION = 0.03
-PRESSURE_K = GRAVITY * FLUID_HEIGHT / MAX_COMPRESSION * 0.7
-NEAR_PRESSURE_K = 0.03 * PRESSURE_K
-
-# lague spawning
-SPAWN_CENTRE = (WIDTH / 2, HEIGHT / 2)
-SPAWN_SIZE = (16.0, 20.0)
-SPAWN_JITTER = 0.05
+PRESSURE_K = GRAVITY * FLUID_HEIGHT / MAX_COMPRESSION
+NEAR_PRESSURE_K = 0.02 * PRESSURE_K
 
 
 
@@ -190,7 +191,7 @@ def spawn_grid(x: wp.array[wp.vec3], v: wp.array[wp.vec3], centre: wp.vec2, size
     v[i] = wp.vec3(0.0, 0.0, 0.0)
 
 class Solver:
-    def __init__(self, n=NUM_PARTICLES, width=WIDTH, height=HEIGHT, seed=67, gravity=(0.0, 0.0, 0.0), radius=PARTICLE_RADIUS, support_radius=SUPPORT_RADIUS):
+    def __init__(self, n=NUM_PARTICLES, width=WIDTH, height=HEIGHT, seed=67, gravity=(0.0, -9.81, 0.0), radius=PARTICLE_RADIUS, support_radius=SUPPORT_RADIUS):
         self.n = n
         self.width = width
         self.height = height
@@ -228,7 +229,7 @@ class Solver:
         #wp.launch(spawn_random, dim=n, inputs=[self.x, self.v, self.width, self.height, seed, self.radius])
 
     def step(self, dt: float):
-        x_star = self.x + self.v * 1.0 / 60.0
+        x_star = self.x + self.v * 1.0 / 120.0
         self.grid.build(x_star, self.support_radius)
 
         wp.launch(compute_density, dim=self.n, inputs=[

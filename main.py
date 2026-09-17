@@ -1,5 +1,6 @@
 
 
+import math
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,11 @@ MAX_FRAME_TIME = 0.25
 # Simulated seconds per real second. Scales how much time is fed to the
 # accumulator, not the step size, so stability is unaffected -- only cost.
 TIME_SCALE = 1.0
+
+# Max fraction of the support radius a pressure wave may cross in one substep.
+# Blows up above ~0.6; Lague's scenes sit around 0.35.
+CFL = 0.4
+SUBSTEPS = max(1, math.ceil(SIM_DT * math.sqrt(sph.PRESSURE_K) / (CFL * sph.SUPPORT_RADIUS)))
 
 SPEED_SCALE = 10.0
 
@@ -49,6 +55,7 @@ class Viewer(mglw.WindowConfig):
         self.solver = sph.Solver()
         self.paused = True
         print(sph.log(self.solver))
+        print("substeps per frame:", SUBSTEPS)
 
         # Hybrid-graphics check. Warp computes on the 4090, so if GL lands on the
         # Intel iGPU every frame crosses between devices and wp.RegisteredGLBuffer
@@ -104,13 +111,17 @@ class Viewer(mglw.WindowConfig):
         if key == keys.SPACE:
             self.paused = not self.paused
         if key == keys.RIGHT and self.paused:
-            self.solver.step(SIM_DT)
+            self.step_frame()
+
+    def step_frame(self) -> None:
+        for _ in range(SUBSTEPS):
+            self.solver.step(SIM_DT / SUBSTEPS)
 
     def on_render(self, time: float, frame_time: float):
         if not self.paused:
             self.accumulator += min(frame_time, MAX_FRAME_TIME) * TIME_SCALE
             while self.accumulator >= SIM_DT:
-                self.solver.step(SIM_DT)
+                self.step_frame()
                 self.accumulator -= SIM_DT
 
         positions = self.solver.x.numpy()
