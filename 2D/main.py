@@ -136,7 +136,7 @@ class Viewer(mglw.WindowConfig):
 
         self.prog["u_domain"].value = (self.solver.width, self.solver.height)
         self.prog["u_diameter_px"].value = (
-            2.0 * sph.PARTICLE_RADIUS * viewport[3] / self.solver.height
+                2.0 * sph.PARTICLE_RADIUS * viewport[3] / self.solver.height
         )
 
         self.vao.render(moderngl.POINTS)
