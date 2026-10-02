@@ -79,6 +79,7 @@ class Viewer(mglw.WindowConfig):
         self.display_prog["u_depth"].value = 0
         self.ctx.gc_mode = "auto"
         self.create_targets()
+        self.display_prog["u_skybox"].value = 1
 
         n = self.solver.n
         self.vbo_pos = self.ctx.buffer(reserve=n * 3 * 4, dynamic=True)
@@ -177,9 +178,11 @@ class Viewer(mglw.WindowConfig):
 
         self.vao.render(moderngl.POINTS)
 
-        self.blur_prog["u_radius"].value = 20
-        self.blur_prog["u_sigma"].value = 10.0
+        self.blur_prog["u_radius"].value = 2 * sph.PARTICLE_SPACING
+        #self.blur_prog["u_sigma"].value = 10.0
         self.blur_prog["u_depth"].value = 0
+        self.blur_prog["u_depth_sigma"].value = 4 * sph.PARTICLE_SPACING
+        self.blur_prog["u_proj"].write(self.camera.projection.matrix)
 
         self.blur_fbo_a.use()
         self.depth_tex.use(location=0)
@@ -205,6 +208,8 @@ class Viewer(mglw.WindowConfig):
 
         self.blur_tex_b.use(location=0)
         self.display_prog["u_proj"].write(self.camera.projection.matrix)
+        self.display_prog["u_view"].write(self.camera.matrix)
+        self.sky_tex.use(location=1)
         self.quad.render(self.display_prog)
 
         wp.synchronize()
