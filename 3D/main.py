@@ -48,6 +48,8 @@ class Viewer(mglw.WindowConfig):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        self.thickness_fbo = None
+        self.thickness_tex = None
         self.blur_fbo_b = None
         self.blur_tex_b = None
         self.blur_fbo_a = None
@@ -76,10 +78,13 @@ class Viewer(mglw.WindowConfig):
             vertex_shader=read_shader("fullscreen.vert"),
             fragment_shader=read_shader("display.frag"),
         )
+
+
         self.display_prog["u_depth"].value = 0
         self.ctx.gc_mode = "auto"
         self.create_targets()
         self.display_prog["u_skybox"].value = 1
+        self.display_prog["thickness"].value = 2
 
         n = self.solver.n
         self.vbo_pos = self.ctx.buffer(reserve=n * 3 * 4, dynamic=True)
@@ -88,6 +93,15 @@ class Viewer(mglw.WindowConfig):
         if "in_scalar" in self.prog:
             attributes.append((self.vbo_scalar, "1f", "in_scalar"))
         self.vao = self.ctx.vertex_array(self.prog, attributes)
+
+        self.thickness_prog = self.ctx.program(
+            vertex_shader=read_shader("points.vert"),
+            fragment_shader=read_shader("thickness.frag"),
+        )
+        attributes = [(self.vbo_pos, "3f", "in_pos")]
+        if "in_scalar" in self.thickness_prog:
+            attributes.append((self.vbo_scalar, "1f", "in_scalar"))
+        self.thickness_vao = self.ctx.vertex_array(self.thickness_prog, attributes)
 
         self.sky_prog = self.ctx.program(vertex_shader=read_shader("skybox.vert"), fragment_shader=read_shader("skybox.frag"))
         self.sky_cube = geometry.cube(size=(2.0, 2.0, 2.0), normals=False, uvs=False)
@@ -122,6 +136,8 @@ class Viewer(mglw.WindowConfig):
             color_attachments=[self.depth_tex],
             depth_attachment=self.ctx.depth_renderbuffer(size),
         )
+        self.thickness_tex = self.ctx.texture(size, 1, dtype="f4")
+        self.thickness_fbo = self.ctx.framebuffer(color_attachments=[self.thickness_tex])
         self.blur_tex_a = self.ctx.texture(size, 1, dtype="f4")
         self.blur_fbo_a = self.ctx.framebuffer(color_attachments=[self.blur_tex_a])
         self.blur_tex_b = self.ctx.texture(size, 1, dtype="f4")
@@ -178,6 +194,23 @@ class Viewer(mglw.WindowConfig):
 
         self.vao.render(moderngl.POINTS)
 
+        self.thickness_fbo.use()
+        self.thickness_fbo.clear(0.0)
+
+        self.thickness_prog["u_view"].write(self.camera.matrix)
+        self.thickness_prog["u_proj"].write(self.camera.projection.matrix)
+        self.thickness_prog["u_radius"].value = sph.PARTICLE_RADIUS
+        self.thickness_prog["u_viewport_h"].value = self.wnd.buffer_size[1]
+        self.thickness_prog["u_volume_scale"].value = sph.PARTICLE_SPACING ** 3 / (4 / 3 * math.pi * sph.PARTICLE_RADIUS ** 3)
+
+        self.ctx.disable(moderngl.DEPTH_TEST)
+        self.ctx.enable(moderngl.BLEND)
+        self.ctx.blend_func = moderngl.ONE, moderngl.ONE
+        self.thickness_vao.render(moderngl.POINTS)
+
+        self.ctx.disable(moderngl.BLEND)
+        self.ctx.enable(moderngl.DEPTH_TEST)
+
         self.blur_prog["u_radius"].value = 2 * sph.PARTICLE_SPACING
         #self.blur_prog["u_sigma"].value = 10.0
         self.blur_prog["u_depth"].value = 0
@@ -210,6 +243,7 @@ class Viewer(mglw.WindowConfig):
         self.display_prog["u_proj"].write(self.camera.projection.matrix)
         self.display_prog["u_view"].write(self.camera.matrix)
         self.sky_tex.use(location=1)
+        self.thickness_tex.use(location=2)
         self.quad.render(self.display_prog)
 
         wp.synchronize()
