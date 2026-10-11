@@ -89,7 +89,7 @@ void main() {
     // sigma basically decides how much the specific colour of light gets absorbed while passing through the liquid
     // so a high value for R means less red light will pass through as it makes its way through the liquid
 
-    SIGMA = vec3(2.0, 0.4, 0.3) * 0.2; // water
+    SIGMA = vec3(2.2, 0.4, 0.3) * 0.2; // water
     //SIGMA = vec3(0.3, 1.0, 1.0) * 0.2; // blood
     //vec3 refracted = water_color + (background - water_color) * exp(-thickness * SIGMA);
     vec3 refracted = background * exp(-thickness * SIGMA);

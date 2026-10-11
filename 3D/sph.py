@@ -2,7 +2,7 @@ import warp as wp
 import math
 
 HEIGHT = 38.0
-WIDTH = HEIGHT * 1.6
+WIDTH = HEIGHT * 2.1
 LENGTH = 25.0
 NUM_PARTICLES = 600000
 

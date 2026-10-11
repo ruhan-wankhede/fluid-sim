@@ -214,7 +214,7 @@ class Viewer(mglw.WindowConfig):
         self.blur_prog["u_radius"].value = 2 * sph.PARTICLE_SPACING
         #self.blur_prog["u_sigma"].value = 10.0
         self.blur_prog["u_depth"].value = 0
-        self.blur_prog["u_depth_sigma"].value = 4 * sph.PARTICLE_SPACING
+        self.blur_prog["u_depth_sigma"].value = 2.5 * sph.PARTICLE_SPACING
         self.blur_prog["u_proj"].write(self.camera.projection.matrix)
 
         self.blur_fbo_a.use()
