@@ -184,7 +184,7 @@ def apply_bounds(
 def spawn_random(x: wp.array[wp.vec3], v: wp.array[wp.vec3], width: float, height: float, seed: wp.int32, radius: float):
     i = wp.tid()
     state = wp.rand_init(seed, i)
-    x[i] = wp.vec3(wp.randf(state) * (width - radius), wp.randf(state) * (height - radius), 0.0)
+    x[i] = wp.vec3(wp.randf(state) * (width - radius * 100.0), wp.randf(state) * (height - radius * 100.0), wp.randf(state) * (LENGTH - radius * 100.0))
     v[i] = wp.vec3(0.0, 0.0, 0.0)
 
 @wp.kernel

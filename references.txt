@@ -1,0 +1,9 @@
+https://www.youtube.com/watch?v=kOkfC5fLfgE
+https://arxiv.org/pdf/2009.06944
+https://web.archive.org/web/20250106201614/http://www.ligum.umontreal.ca/Clavet-2005-PVFS/pvfs.pdf
+https://matthias-research.github.io/pages/publications/sca03.pdf
+https://nvidia.github.io/warp/stable/api_reference/_generated/warp.HashGrid.html
+https://developer.download.nvidia.com/presentations/2010/gdc/Direct3D_Effects.pdf
+https://wstahw.win.tue.nl/edu/2IV06/andrei/particle_rendering/provided/p91-van_der_laan.pdf
+https://en.wikipedia.org/wiki/Blinn–Phong_reflection_model
+https://ttnghia.github.io/pdf/NarrowRangeFilter.pdf
